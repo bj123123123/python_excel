@@ -1,4 +1,4 @@
-aimport tkinter as tk
+import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
@@ -183,7 +183,7 @@ class FundUpdaterGUI:
         self.log_queue = queue.Queue()
         
         # 默认日志级别
-        self.log_level = LOG_LEVEL['LOG']  # 默认显示所有信息
+        self.log_level = LOG_LEVEL['OPER']  # 默认显示操作信息
         
         # 初始化组件
         self.setup_ui()
@@ -239,7 +239,7 @@ class FundUpdaterGUI:
         
         # 日志级别选择
         ttk.Label(control_frame, text="日志级别:").grid(row=0, column=3, padx=(20, 5))
-        self.log_level_var = tk.StringVar(value="所有信息")
+        self.log_level_var = tk.StringVar(value="操作信息")
         self.log_level_combo = ttk.Combobox(control_frame, textvariable=self.log_level_var, 
                                            values=["所有信息", "操作信息", "仅错误"], 
                                            state="readonly", width=10)
@@ -337,7 +337,7 @@ class FundUpdaterGUI:
         self.browse_btn.config(state='normal')
         self.progress_bar.stop()
         
-        self.log_message("=== 更新操作已停止 ===")
+        self.log_message("=== 更新操作已停止 ===", level='OPER')
     
     def reset_ui(self):
         """重置界面"""
@@ -352,16 +352,20 @@ class FundUpdaterGUI:
     def update_funds_thread(self):
         """在新线程中更新基金数据"""
         try:
-            self.log_message("=== 开始更新基金数据 ===")
+            self.log_message("=== 开始更新基金数据 ===", level='OPER')
             
             # 初始化Excel更新器
             self.excel_updater = FundExcelUpdater(self.file_path_var.get())
             
             # 读取Excel文件
-            self.log_message("正在读取Excel文件...")
-            self.excel_updater.read_excel_fund_values()
-            total_funds = len(self.excel_updater.excel_fund_values)
-            self.log_message(f"成功读取 {total_funds} 个基金数据")
+            self.log_message("正在读取Excel文件...", level='OPER')
+            try:
+                self.excel_updater.read_excel_fund_values()
+                total_funds = len(self.excel_updater.excel_fund_values)
+                self.log_message(f"成功读取 {total_funds} 个基金数据", level='OPER')
+            except Exception as e:
+                self.log_message(f"❌ 错误: 读取Excel文件失败: {str(e)}", level='ERR')
+                return
             
             # 更新基金数据
             successful_updates = 0
@@ -374,7 +378,7 @@ class FundUpdaterGUI:
                 # 更新进度
                 progress_text = f"处理基金 {fund_code} ({i+1}/{total_funds})"
                 self.progress_var.set(progress_text)
-                self.log_message(f"\n正在处理基金: {fund_code}")
+                self.log_message(f"\n正在处理基金: {fund_code}", level='OPER')
                 
                 # 从今天开始逐日往前推最多7天
                 found_valid_data = False
@@ -401,7 +405,7 @@ class FundUpdaterGUI:
                             f"{percentage:.2f}%" if percentage is not None else old_percentage
                         )
                         
-                        self.log_message(f"✅ 成功更新基金 {fund_code} {date_str} 净值: {old_net_value} -> {net_value}")
+                        self.log_message(f"✅ 成功更新基金 {fund_code} {date_str} 净值: {old_net_value} -> {net_value}", level='ERR')
                         if percentage is not None:
                             self.log_message(f"   涨跌幅: {old_percentage} -> {percentage:.2f}%")
                         
@@ -413,24 +417,24 @@ class FundUpdaterGUI:
                         target_date = target_date - timedelta(days=1)
                 
                 if not found_valid_data:
-                    self.log_message(f"❌ 基金 {fund_code} 最近7天均无有效净值数据")
+                    self.log_message(f"❌ 基金 {fund_code} 最近7天均无有效净值数据", level='ERR')
                     failed_fetches += 1
             
             # 更新Excel文件
             if self.is_running:
-                self.log_message("\n正在更新Excel文件...")
+                self.log_message("\n正在更新Excel文件...", level='OPER')
                 self.excel_updater.update_excel_values()
-                self.log_message("✅ Excel文件更新完成")
+                self.log_message("✅ Excel文件更新完成", level='OPER')
             
             # 显示结果
             if self.is_running:
-                self.log_message(f"\n=== 更新完成 ===")
-                self.log_message(f"成功更新: {successful_updates} 个基金")
-                self.log_message(f"更新失败: {failed_fetches} 个基金")
+                self.log_message(f"\n=== 更新完成 ===", level='OPER')
+                self.log_message(f"成功更新: {successful_updates} 个基金", level='OPER')
+                self.log_message(f"更新失败: {failed_fetches} 个基金", level='OPER')
                 self.progress_var.set(f"更新完成 - 成功: {successful_updates}, 失败: {failed_fetches}")
             
         except Exception as e:
-            self.log_message(f"❌ 错误: {str(e)}")
+            self.log_message(f"❌ 错误: {str(e)}", level='ERR')
             self.progress_var.set("更新过程中出现错误")
         
         finally:
